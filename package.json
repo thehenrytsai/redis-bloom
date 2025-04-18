@@ -1,0 +1,17 @@
+{
+    "name": "@thehenrytsai/redis-bloom",
+    "version": "0.1.0",
+    "type": "module",
+    "exports": {
+        ".": "./dist/bloom.js"
+    },
+    "types": "./dist/bloom.d.ts",
+    "scripts": {
+        "build": "tsc",
+        "test:node": "tsc && node dist/test/bloom.spec.js"
+    },
+    "devDependencies": {
+        "@types/node": "^22.14.1",
+        "typescript": "^5.8.3"
+    }
+}
