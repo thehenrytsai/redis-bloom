@@ -1,6 +1,6 @@
 {
     "tasks": {
-      "dev": "deno run --watch --allow-all --env-file=.env --inspect main.ts",
+      "build": "deno run --allow-all build/build-node.ts",
       "test": "deno test --coverage=coverage/ --allow-all --env-file=.env.test && deno coverage coverage/",
       "coverage-html": "deno coverage coverage/ --html"
     },

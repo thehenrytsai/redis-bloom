@@ -34,3 +34,7 @@ This guide assumes Mac/Linux environment.
 1. Now you can install the dev environment dependencies using `hermit`:
 
    `hermit install`
+
+## Building Node.js bundle
+
+`deno task build`

@@ -5,9 +5,13 @@
       "moduleResolution": "node",
       "outDir": "./dist",
       "declaration": true,
-      "emitDeclarationOnly": false,
       "strict": true,
       "esModuleInterop": true,
+      // Settings below are required (both allowImportingTsExtensions & emitDeclarationOnly set to true) in order to import .ts files as .ts not .js
+      // But since emitDeclarationOnly is set to true, we need another tool for build the .ts code into actual javascript,
+      // we use esbuild for this purpose (See build/build-node.ts)
+      "allowImportingTsExtensions": true,
+      "emitDeclarationOnly": true,
     },
     "include": [
         "src",
