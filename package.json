@@ -1,19 +1,22 @@
 {
     "name": "@thehenrytsai/redis-bloom",
-    "version": "0.2.0",
+    "version": "0.4.0",
     "type": "module",
     "exports": {
-        ".": "./dist/bloom.js"
+        ".": "./dist/src/bloom.js"
     },
-    "types": "./dist/bloom.d.ts",
+    "types": "./dist/src/bloom.d.ts",
+    "files": ["dist/"],
     "scripts": {
         "build": "deno task build",
-        "test": "deno task build && node dist/test/bloom.spec.js"
+        "test": "tsc && deno task build && node dist/test/bloom.spec.js"
+    },
+    "dependencies": {
+        "redis": "^4.7.0"
     },
     "devDependencies": {
         "@types/node": "^22.14.1",
         "esbuild": "^0.25.2",
-        "redis": "^4.7.0",
         "typescript": "^5.8.3"
     }
 }

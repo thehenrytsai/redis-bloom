@@ -78,6 +78,8 @@
     "packageJson": {
       "dependencies": [
         "npm:@types/node@^22.14.1",
+        "npm:esbuild@~0.25.2",
+        "npm:redis@^4.7.0",
         "npm:typescript@^5.8.3"
       ]
     }
