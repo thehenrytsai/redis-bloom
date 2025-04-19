@@ -2,14 +2,11 @@ import { build } from "esbuild";
 
 await build({
   entryPoints: [
-    "src/bloom.ts",
+    "src/**/*.ts",
     "test/**/*.spec.ts",
 ],
   outdir: "dist",
   format: "esm",
-  // Setting to `bundle` to true would include all dependencies starting from entry point (bloom.ts),
-  // alternatively we can also use "src/**/*.ts" as the entry point also, but setting `bundle` to true also has the benefit of compact size:
-  // all files are compiled into a single file: bloom.js
   bundle: false,
   platform: "node",
   target: "esnext",

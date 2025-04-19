@@ -7,12 +7,13 @@
     },
     "types": "./dist/bloom.d.ts",
     "scripts": {
-        "build": "tsc",
-        "test:node": "tsc && node dist/test/bloom.spec.js"
+        "build": "deno task build",
+        "test": "deno task build && node dist/test/bloom.spec.js"
     },
     "devDependencies": {
         "@types/node": "^22.14.1",
         "esbuild": "^0.25.2",
+        "redis": "^4.7.0",
         "typescript": "^5.8.3"
     }
 }
