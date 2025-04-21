@@ -5,8 +5,8 @@ Deno.test("Redis Bloom filters", async () => {
   const filterName = Date.now().toString();
 
   // 1. Test creation then using the filter
-  const client = await RedisBloomFilterClient.create("redis://localhost:6379"); 
-  const filter1 = await client.get(filterName);
+const client = await RedisBloomFilterClient.create({ url: "redis://localhost:6379" }); 
+const filter1 = await client.get(filterName);
   await filter1.add("foo", "bar");
   
   const matches1 = await filter1.extractContainedItems("foo", "bar", "baz");

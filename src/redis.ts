@@ -29,7 +29,7 @@ export class NodeRedisAdapter implements RedisClient {
   pipeline(): RedisPipeline {
     const multi = this.client.multi();
     return {
-      setbit(key: string, offset: number, value: 0 | 1): RedisPipeline {
+      setBit(key: string, offset: number, value: 0 | 1): RedisPipeline {
         multi.setBit(key, offset, value);
         return this;
       },
@@ -39,7 +39,7 @@ export class NodeRedisAdapter implements RedisClient {
     };
   }
   
-  async getbit(key: string, offset: number): Promise<number> {
+  async getBit(key: string, offset: number): Promise<number> {
     return await this.client.getBit(key, offset);
   }
   

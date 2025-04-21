@@ -4,7 +4,7 @@ import { RedisBloomFilterClient } from "../src/bloom.ts";
 const filterName = Date.now().toString();
 
 // 1. Test creation then using the filter
-const client = await RedisBloomFilterClient.create("redis://localhost:6379"); 
+const client = await RedisBloomFilterClient.create({ url: "redis://localhost:6379" }); 
 const filter1 = await client.get(filterName);
 await filter1.add("foo", "bar");
 

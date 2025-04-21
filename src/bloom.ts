@@ -42,12 +42,12 @@ export interface BloomFilter {
 export interface RedisClient {
   close(): Promise<void>;
   pipeline(): RedisPipeline;
-  getbit(key: string, offset: number): Promise<number>;
+  getBit(key: string, offset: number): Promise<number>;
   del(key: string): Promise<number>;
 }
 
 export interface RedisPipeline {
-  setbit(key: string, offset: number, value: 0 | 1): RedisPipeline;
+  setBit(key: string, offset: number, value: 0 | 1): RedisPipeline;
   exec(): Promise<Array<any>>;
 }
 
@@ -56,30 +56,49 @@ export interface RedisPipeline {
  * Bloom filter implementation using native Redis bitmap operations.
  * This makes it compatible with managed Redis services like AWS ElastiCache
  * that don't support custom Redis modules.
+ * 
+ * @param params.url The Redis URL.
+ * @param params.sizeInBits The size of the Bloom filter in bits, defaults to 10,000.
+ * @param params.numHashes The number of hash functions to use, defaults to 3.
+ * @param params.hashFunction1 The first hash function to use, defaults to use SHA-256.
  */
 export class RedisBloomFilterClient implements BloomFilterClient {
 
-  public static async create(url: string): Promise<BloomFilterClient> {
+  public static async create(params: {
+    url: string,
+    sizeInBits?: number,
+    numHashes?: number,
+    hashFunction1?: (data: string) => Promise<number>,
+    hashFunction2?: (data: string) => Promise<number>,
+  }): Promise<BloomFilterClient> {
+    const { url, sizeInBits, numHashes, hashFunction1, hashFunction2 } = params;
+
     const redis = await NodeRedisAdapter.create(url);
-    return new RedisBloomFilterClient(redis);
+    const client = new RedisBloomFilterClient(
+      redis,
+      sizeInBits || 10000,
+      numHashes || 3,
+      hashFunction1 || ((data: string) => toUint32UsingSha256(data, 0)),
+      hashFunction2 || ((data: string) => toUint32UsingSha256(data, 4)), // 4 bytes offset
+    );
+
+    return client;
   }
 
-  private redis: RedisClient; // Redis client
-  private readonly numHashes: number;
-  private readonly bitSize: number;
-  
   /**
    * Creates a new Redis Bloom filter manager.
    * 
    * @param redis Redis client instance
-   * @param bitSize The size of the bit array (m)
-   * @param numHashes Number of hash functions to use (k)
+   * @param sizeInBits The size of the Bloom filter (m)
+   * @param numHashes Number of hashes (bit positions) to produce (k)
    */
-  private constructor(redis: RedisClient, bitSize = 100000, numHashes = 3) {
-    this.redis = redis;
-    this.bitSize = bitSize;
-    this.numHashes = numHashes;
-  }
+  private constructor(
+    private redis: RedisClient,
+    private sizeInBits: number,
+    private numHashes: number,
+    private hashFunction1: (data: string) => Promise<number>,
+    private hashFunction2: (data: string) => Promise<number>,
+  ) { }
 
   public async close(): Promise<void> {
     await this.redis.close();
@@ -89,7 +108,14 @@ export class RedisBloomFilterClient implements BloomFilterClient {
    * Gets or creates a Bloom filter with the given name.
    */
   async get(name: string): Promise<BloomFilter> {
-    return new RedisBloomFilter(this.redis, name, this.bitSize, this.numHashes);
+    return new RedisBloomFilter(
+      this.redis,
+      name,
+      this.sizeInBits,
+      this.numHashes,
+      this.hashFunction1,
+      this.hashFunction2,
+    );
   }
 
   /**
@@ -104,39 +130,14 @@ export class RedisBloomFilterClient implements BloomFilterClient {
  * Implementation of a Bloom filter using Redis bitmap operations.
  */
 class RedisBloomFilter implements BloomFilter {
-  private redis: RedisClient;
-  private readonly key: string;
-  private readonly bitSize: number;
-  private readonly numHashes: number;
-  
-  constructor(redis: RedisClient, key: string, bitSize: number, numHashes: number) {
-    this.redis = redis;
-    this.key = key;
-    this.bitSize = bitSize;
-    this.numHashes = numHashes;
-  }
-
-  /**
-   * Generate hash values for an item
-   */
-  private getHashValues(item: string): number[] {
-    const hashValues: number[] = [];
-    
-    // Simple hash functions using string charCode values
-    // In production, use better hash functions
-    for (let i = 0; i < this.numHashes; i++) {
-      let hash = 0;
-      for (let j = 0; j < item.length; j++) {
-        // Different seed for each hash function
-        hash = ((hash << 5) + hash) + item.charCodeAt(j) + i * 17;
-        hash &= hash; // Convert to 32bit integer
-      }
-      // Make sure hash is positive and within bit range
-      hashValues.push(Math.abs(hash) % this.bitSize);
-    }
-    
-    return hashValues;
-  }
+  constructor(
+    private redis: RedisClient,
+    private key: string,
+    private sizeInBits: number,
+    private numHashes: number,
+    private hashFunction1: (data: string) => Promise<number>,
+    private hashFunction2: (data: string) => Promise<number>,
+  ) { }
   
   /**
    * Add items to the Bloom filter
@@ -146,9 +147,16 @@ class RedisBloomFilter implements BloomFilter {
     const pipeline = this.redis.pipeline();
     
     for (const item of items) {
-      const hashes = this.getHashValues(item);
-      for (const hash of hashes) {
-        pipeline.setbit(this.key, hash, 1);
+      const setPositions = await computeItemBitPositions(
+        item,
+        this.numHashes,
+        this.sizeInBits,
+        this.hashFunction1,
+        this.hashFunction2,
+      );
+
+      for (const position of setPositions) {
+        pipeline.setBit(this.key, position, 1);
       }
     }
     
@@ -163,14 +171,20 @@ class RedisBloomFilter implements BloomFilter {
     const result = new Set<string>();
     
     for (const item of items) {
-      const hashes = this.getHashValues(item);
+      const expectedSetPositions = await computeItemBitPositions(
+        item,
+        this.numHashes,
+        this.sizeInBits,
+        this.hashFunction1,
+        this.hashFunction2,
+      );
       let isMatch = true;
       
       // Check if all bits are set
-      for (const hash of hashes) {
+      for (const position of expectedSetPositions) {
         // Use await inside loop for simplicity, but in production
         // consider batching these operations
-        const bit = await this.redis.getbit(this.key, hash);
+        const bit = await this.redis.getBit(this.key, position);
         if (bit === 0) {
           isMatch = false;
           break;
@@ -184,4 +198,45 @@ class RedisBloomFilter implements BloomFilter {
     
     return result;
   }
+}
+
+async function toUint32UsingSha256(data: string, offsetInBytes: number): Promise<number> {
+  const dataBytes = new TextEncoder().encode(data);
+  const hashBytes = await crypto.subtle.digest("SHA-256", dataBytes);
+
+  // Take first 32 bits (4 bytes) and convert to number
+  const hashView = new DataView(hashBytes);
+  return hashView.getUint32(offsetInBytes, true); // true = little endian
+}
+
+/**
+ * Function to extract bit positions from one SHA-256 hash
+ * @param item The item to hash.
+ * @param positionCount The number of positions in the Bloom filter to set (conventionally k).
+ * @param bloomFilterSize The size of the Bloom filter in number of bits (conventionally m).
+ */
+async function computeItemBitPositions(
+  item: string,
+  positionCount: number,
+  bloomFilterSize: number,
+  hashFunction1: (data: string) => Promise<number>,
+  hashFunction2: (data: string) => Promise<number>,
+): Promise<number[]> {
+  // Use the double hashing technique to generate multiple hash values
+  const positions: number[] = [];
+  
+  // Get two independent hashes
+  const hash1 = await hashFunction1(item);
+  const hash2 = await hashFunction2(item);
+  
+  // Generate k positions using double hashing technique
+  for (let i = 0; i < positionCount; i++) {
+    // This is the enhanced double hashing formula: h1(x) + i*h2(x) suggested by original Bloom filter paper
+    // It provides k hashes from just 2 hash computations
+    // NOTE: ">>> 0" forces the integer to be unsigned, allow one extra bit of precision (32 bits instead of 31 bits)
+    const combinedHash = (hash1 + i * hash2) >>> 0;
+    positions.push(combinedHash % bloomFilterSize);
+  }
+  
+  return positions;
 }
