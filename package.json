@@ -1,12 +1,14 @@
 {
     "name": "@thehenrytsai/redis-bloom",
-    "version": "0.4.0",
+    "version": "1.0.0",
     "type": "module",
     "exports": {
         ".": "./dist/src/bloom.js"
     },
     "types": "./dist/src/bloom.d.ts",
-    "files": ["dist/"],
+    "files": [
+        "dist/"
+    ],
     "scripts": {
         "build": "deno task build",
         "test": "tsc && deno task build && node dist/test/bloom.spec.js"
