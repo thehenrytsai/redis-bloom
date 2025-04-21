@@ -15,6 +15,12 @@ export interface BloomFilterClient {
   clear(name: string): Promise<void>;
 
   /**
+   * Clears (deletes) all data on the Redis server.
+   * This is a destructive operation, created mainly for testing purposes.
+   */
+  clearAll(): Promise<void>;
+
+  /**
    * Closes the Bloom filter client.
    */
   close(): Promise<void>;
@@ -43,6 +49,7 @@ export interface RedisClient {
   close(): Promise<void>;
   pipeline(): RedisPipeline;
   del(key: string): Promise<number>;
+  flushAll(): Promise<void>;
 }
 
 export interface RedisPipeline {
@@ -115,9 +122,6 @@ export class RedisBloomFilterClient implements BloomFilterClient {
     await this.redis.close();
   }
 
-  /**
-   * Gets or creates a Bloom filter with the given name.
-   */
   async get(name: string): Promise<BloomFilter> {
     return new RedisBloomFilter(
       this.redis,
@@ -129,11 +133,12 @@ export class RedisBloomFilterClient implements BloomFilterClient {
     );
   }
 
-  /**
-   * Clears the Bloom filter with the given name by deleting the Redis key.
-   */
   async clear(name: string): Promise<void> {
     await this.redis.del(name);
+  }
+
+  async clearAll(): Promise<void> {
+    await this.redis.flushAll();
   }
 }
 

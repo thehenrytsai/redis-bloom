@@ -31,6 +31,9 @@ console.log(matches.has("unknown@example.com")); // false
 // Clearing a filter
 await client.clear("my-filter-name");
 
+// Clearing all filters (mainly for testing purposes)
+await client.clearAll();
+
 // Closing the connection when finished
 await client.close();
 ```

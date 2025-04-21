@@ -4,9 +4,11 @@ import { RedisBloomFilterClient } from "../src/bloom.ts";
 Deno.test("Redis Bloom filters", async () => {
   const filterName = Date.now().toString();
 
+  const client = await RedisBloomFilterClient.create({ url: "redis://localhost:6379" });
+  await client.clearAll();
+  
   // 1. Test creation then using the filter
-const client = await RedisBloomFilterClient.create({ url: "redis://localhost:6379" }); 
-const filter1 = await client.get(filterName);
+  const filter1 = await client.get(filterName);
   await filter1.add("foo", "bar");
   
   const matches1 = await filter1.extractContainedItems("foo", "bar", "baz");
@@ -28,4 +30,6 @@ const filter1 = await client.get(filterName);
   assert(matches3.has("baz"));
   
   await client.close();
+  
+  console.log("Node TypeScript test passed.");
 });

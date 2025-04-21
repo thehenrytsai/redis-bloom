@@ -48,4 +48,8 @@ export class NodeRedisAdapter implements RedisClient {
   async del(key: string): Promise<number> {
     return await this.client.del(key);
   }
+
+  async flushAll(): Promise<void> {
+    await this.client.flushAll();
+  }
 }
