@@ -54,31 +54,39 @@ export interface RedisPipeline {
 
 /**
  * Bloom filter implementation using native Redis bitmap operations.
- * This makes it compatible with managed Redis services like AWS ElastiCache
- * that don't support custom Redis modules.
- * 
- * @param params.url The Redis URL.
- * @param params.sizeInBits The size of the Bloom filter in bits, defaults to 10,000.
- * @param params.numHashes The number of hash functions to use, defaults to 3.
- * @param params.hashFunction1 The first hash function to use, defaults to use SHA-256.
- * @param params.hashFunction2 The first hash function to use, defaults to use SHA-256.
+ * This makes it compatible with managed Redis services like AWS ElastiCache that don't support custom Redis modules.
  */
 export class RedisBloomFilterClient implements BloomFilterClient {
 
+  /**
+   * Creates a new Redis Bloom filter client.
+   * You can provide two optional hash functions to use for hashing the items,
+   * which will be used to generate any number of hashes suggested by original Bloom filter paper, in essence:
+   * 
+   * h1(x) + i*h2(x)
+   * 
+   * see technical reference for more info:
+   * https://www.eecs.harvard.edu/~michaelm/postscripts/rsa2008.pdf
+   * @param params.url The Redis URL.
+   * @param params.bloomFilterSizeInBits The size of the Bloom filter in bits, defaults to 10,000.
+   * @param params.hashesPerItem The number of hash functions to use, defaults to 3.
+   * @param params.hashFunction1 The 1st hash function to use, defaults to using SHA-256 internally.
+   * @param params.hashFunction2 The 2nd hash function to use, defaults to using SHA-256 internally.
+   */
   public static async create(params: {
     url: string,
-    sizeInBits?: number,
-    numHashes?: number,
+    bloomFilterSizeInBits?: number,
+    hashesPerItem?: number,
     hashFunction1?: (data: string) => Promise<number>,
     hashFunction2?: (data: string) => Promise<number>,
   }): Promise<BloomFilterClient> {
-    const { url, sizeInBits, numHashes, hashFunction1, hashFunction2 } = params;
+    const { url, bloomFilterSizeInBits, hashesPerItem, hashFunction1, hashFunction2 } = params;
 
     const redis = await NodeRedisAdapter.create(url);
     const client = new RedisBloomFilterClient(
       redis,
-      sizeInBits || 10000,
-      numHashes || 3,
+      bloomFilterSizeInBits || 10000,
+      hashesPerItem || 3,
       // NOTE: default of using SHA256 hashing could be optimized to just performing hashing once since SHA256 hash is 32 bytes,
       // but instead of doing such optimization, the better approach is to just use a faster hash function like MurmurHash3 or xxHash
       hashFunction1 || ((data: string) => toUint32UsingSha256(data, 0)),
@@ -92,13 +100,13 @@ export class RedisBloomFilterClient implements BloomFilterClient {
    * Creates a new Redis Bloom filter manager.
    * 
    * @param redis Redis client instance
-   * @param sizeInBits The size of the Bloom filter (m)
-   * @param numHashes Number of hashes (bit positions) to produce (k)
+   * @param bloomFilterSizeInBits The size of the Bloom filter (conventionally m)
+   * @param hashesPerItem Number of hashes (bit positions) to produce  (conventionally k)
    */
   private constructor(
     private redis: RedisClient,
-    private sizeInBits: number,
-    private numHashes: number,
+    private bloomFilterSizeInBits: number,
+    private hashesPerItem: number,
     private hashFunction1: (data: string) => Promise<number>,
     private hashFunction2: (data: string) => Promise<number>,
   ) { }
@@ -114,8 +122,8 @@ export class RedisBloomFilterClient implements BloomFilterClient {
     return new RedisBloomFilter(
       this.redis,
       name,
-      this.sizeInBits,
-      this.numHashes,
+      this.bloomFilterSizeInBits,
+      this.hashesPerItem,
       this.hashFunction1,
       this.hashFunction2,
     );
@@ -137,7 +145,7 @@ class RedisBloomFilter implements BloomFilter {
     private redis: RedisClient,
     private key: string,
     private sizeInBits: number,
-    private numHashes: number,
+    private hashesPerItem: number,
     private hashFunction1: (data: string) => Promise<number>,
     private hashFunction2: (data: string) => Promise<number>,
   ) { }
@@ -152,7 +160,7 @@ class RedisBloomFilter implements BloomFilter {
     for (const item of items) {
       const setPositions = await computeItemBitPositions(
         item,
-        this.numHashes,
+        this.hashesPerItem,
         this.sizeInBits,
         this.hashFunction1,
         this.hashFunction2,
@@ -177,7 +185,7 @@ class RedisBloomFilter implements BloomFilter {
     for (const item of items) {
       const expectedSetPositions = await computeItemBitPositions(
         item,
-        this.numHashes,
+        this.hashesPerItem,
         this.sizeInBits,
         this.hashFunction1,
         this.hashFunction2,
@@ -238,7 +246,7 @@ async function toUint32UsingSha256(data: string, offsetInBytes: number): Promise
  * Function to extract bit positions from one SHA-256 hash
  * @param item The item to hash.
  * @param positionCount The number of positions in the Bloom filter to set (conventionally k).
- * @param bloomFilterSize The size of the Bloom filter in number of bits (conventionally m).
+ * @param bloomFilterSize The size of the Bloom filter in number of bits (conventionally a.ka.a m).
  */
 async function computeItemBitPositions(
   item: string,
