@@ -33,18 +33,16 @@ export class NodeRedisAdapter implements RedisClient {
         multi.setBit(key, offset, value);
         return this;
       },
+
       getBit(key: string, offset: number): RedisPipeline {
         multi.getBit(key, offset);
         return this;
       },
+
       async exec(): Promise<Array<any>> {
         return await multi.exec();
       }
     };
-  }
-  
-  async getBit(key: string, offset: number): Promise<number> {
-    return await this.client.getBit(key, offset);
   }
   
   async del(key: string): Promise<number> {
