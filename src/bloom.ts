@@ -42,12 +42,12 @@ export interface BloomFilter {
 export interface RedisClient {
   close(): Promise<void>;
   pipeline(): RedisPipeline;
-  getBit(key: string, offset: number): Promise<number>;
   del(key: string): Promise<number>;
 }
 
 export interface RedisPipeline {
   setBit(key: string, offset: number, value: 0 | 1): RedisPipeline;
+  getBit(key: string, offset: number): RedisPipeline;
   exec(): Promise<Array<any>>;
 }
 
@@ -61,6 +61,7 @@ export interface RedisPipeline {
  * @param params.sizeInBits The size of the Bloom filter in bits, defaults to 10,000.
  * @param params.numHashes The number of hash functions to use, defaults to 3.
  * @param params.hashFunction1 The first hash function to use, defaults to use SHA-256.
+ * @param params.hashFunction2 The first hash function to use, defaults to use SHA-256.
  */
 export class RedisBloomFilterClient implements BloomFilterClient {
 
@@ -78,6 +79,8 @@ export class RedisBloomFilterClient implements BloomFilterClient {
       redis,
       sizeInBits || 10000,
       numHashes || 3,
+      // NOTE: default of using SHA256 hashing could be optimized to just performing hashing once since SHA256 hash is 32 bytes,
+      // but instead of doing such optimization, the better approach is to just use a faster hash function like MurmurHash3 or xxHash
       hashFunction1 || ((data: string) => toUint32UsingSha256(data, 0)),
       hashFunction2 || ((data: string) => toUint32UsingSha256(data, 4)), // 4 bytes offset
     );
@@ -168,8 +171,9 @@ class RedisBloomFilter implements BloomFilter {
    * Returns items that are potential matches
    */
   async extractContainedItems(...items: string[]): Promise<Set<string>> {
-    const result = new Set<string>();
-    
+    // Create a cache item -> positions map, and also a set of unique (deduped) positions we need to know across all items for querying Redis
+    const positionsToKnow = new Set<number>();
+    const itemToPositionsMap = new Map<string, number[]>();
     for (const item of items) {
       const expectedSetPositions = await computeItemBitPositions(
         item,
@@ -178,25 +182,46 @@ class RedisBloomFilter implements BloomFilter {
         this.hashFunction1,
         this.hashFunction2,
       );
-      let isMatch = true;
+
+      itemToPositionsMap.set(item, expectedSetPositions);
+      
+      for (const position of expectedSetPositions) {
+        positionsToKnow.add(position);
+      }
+    }
+
+    // Convert the set to an array for preserving order when iterating
+    const positionsToKnowArray = Array.from(positionsToKnow);
+
+    // Query Redis for all positions at once
+    const pipeline = this.redis.pipeline();
+    for (const position of positionsToKnowArray) {
+      pipeline.getBit(this.key, position);
+    }
+    const results = await pipeline.exec();
+
+    // construct a set of position that are set to 1 to quickly check if a bit is set
+    const setPositions = new Set<number>();
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i];
+      if (result === 1) {
+        setPositions.add(positionsToKnowArray[i]);
+      }
+    }
+
+    // Finally check each item against the set positions
+    const matchedItems = new Set<string>();
+    for (const item of items) {
+      const expectedSetPositions = itemToPositionsMap.get(item)!;
       
       // Check if all bits are set
-      for (const position of expectedSetPositions) {
-        // Use await inside loop for simplicity, but in production
-        // consider batching these operations
-        const bit = await this.redis.getBit(this.key, position);
-        if (bit === 0) {
-          isMatch = false;
-          break;
-        }
-      }
-      
-      if (isMatch) {
-        result.add(item);
+      const allBitsSet = expectedSetPositions.every((position) => setPositions.has(position));
+      if (allBitsSet) {
+        matchedItems.add(item);
       }
     }
     
-    return result;
+    return matchedItems;
   }
 }
 
