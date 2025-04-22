@@ -99,6 +99,28 @@ This guide assumes Mac/Linux environment.
 
    `hermit install`
 
-## Building Node.js bundle
+### Building Node.js bundle
 
-`deno task build`
+`deno task build:node` or
+
+`npm run build` (calls the above `deno` task)
+
+### Appendix
+- To connect to an AWS ElastiCache instance through an EC2 proxy/bastion host:
+
+  - Ensure the EC2 instance's Security Group has been added to allowed Security Groups under ElastiCache's "Connectivity and security" settings.
+
+  - Create SSH tunnel with port forwarding to the ElastiCache:
+  
+    ```sh
+    ssh -i /path/to/ec2-access-key.pem -N -L <local-port>:<elasticache-endpoint>:<elasticache-port> ec2-user@<public-ec2-instance-ip>
+    ```
+
+    For example:
+    
+    ```sh
+    ssh -i ec2-access-key.pem -N -L 6380:master.test-service-valkey.tl83oi.use1.cache.amazonaws.com:6379 ec2-user@44.222.66.8
+    ```
+
+  - After establishing the tunnel, connect to ElastiCache locally via `rediss://localhost:6380`
+    > NOTE: you'll need to disable server identity check: `checkServerIdentity: false` when creating the `RedisBloomFilterClient`.
