@@ -7,9 +7,7 @@ This Bloom filter implementation works with managed Redis services like AWS Elas
 import { RedisBloomFilterClient } from "@thehenrytsai/redis-bloom";
 
 // Connect to Redis
-const client = await RedisBloomFilterClient.create({ 
-  url: "redis://localhost:6379" 
-});
+const client = await RedisBloomFilterClient.create({ url: "redis://localhost:6379" });
 
 // Getting or creating a Bloom filter
 const filter = await client.get("my-filter-name");
@@ -43,9 +41,10 @@ The Redis Bloom filter can be fine-tuned for your specific use case by adjusting
 
 ```ts
 const client = await RedisBloomFilterClient.create({
-  url: "redis://localhost:6379",
-  bloomFilterSizeInBits: 100_000,    // defaults to 10,000 bits
-  hashesPerItem: 5,                  // defaults to 3 hashes per item
+  url: "rediss://localhost:6379",
+  checkServerIdentity: false,     // defaults to true, set to false to skip server cert verification
+  bloomFilterSizeInBits: 100_000, // defaults to 10,000 bits
+  hashesPerItem: 5,               // defaults to 3 hashes per item
   hashFunction1: customHashFn1,
   hashFunction2: customHashFn2,
 });

@@ -6,16 +6,32 @@ import { RedisClient, RedisPipeline } from "./bloom.ts";
  */
 export class NodeRedisAdapter implements RedisClient {
 
-  public static async create(url: string): Promise<NodeRedisAdapter> {
-    const redis = new NodeRedisAdapter(url);
+  /**
+   * Creates a new Redis client.
+   * @param checkServerIdentity Only used if `url` starts with `rediss://`. Set to `false` to skip server identity verification.
+   */
+  public static async create(url: string, checkServerIdentity: boolean): Promise<NodeRedisAdapter> {
+    const redis = new NodeRedisAdapter(url, checkServerIdentity);
     await redis.connect();
     return redis;
   }
 
   private client: RedisClientType;
   
-  constructor(url: string) {
-    this.client = createClient({ url });
+  constructor(url: string, checkServerIdentity: boolean) {
+    
+    const useTls = url.startsWith('rediss://');
+
+    this.client = createClient({
+      url,
+      socket: {
+        tls: useTls,
+        // If we are using TLS and want to keep server identity verification,
+        // we set the checkServerIdentity to undefined: ie. keeping existing default validation logic.
+        // If we want to skip server identity verification, we set it to a function that does nothing.
+        checkServerIdentity: useTls && checkServerIdentity ? undefined : () => undefined,
+      },
+    });
   }
 
   async connect(): Promise<void> {

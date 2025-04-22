@@ -1,7 +1,7 @@
 {
     "tasks": {
-      "build": "deno run --allow-all build/build-node.ts",
-      "test": "deno test --coverage=coverage/ --allow-all --env-file=.env.test && deno coverage coverage/",
+      "build:node": "deno run --allow-all build/build-node.ts",
+      "test": "deno test --allow-all --unsafely-ignore-certificate-errors=localhost",
       "coverage-html": "deno coverage coverage/ --html"
     },
     "imports": {

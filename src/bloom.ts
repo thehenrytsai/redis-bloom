@@ -75,6 +75,12 @@ export class RedisBloomFilterClient implements BloomFilterClient {
    * see technical reference for more info:
    * https://www.eecs.harvard.edu/~michaelm/postscripts/rsa2008.pdf
    * @param params.url The Redis URL.
+   * @param params.checkServerIdentity
+   *   Whether to check server identity such as server certificate when communicating with the server using TLS (URL starts with `rediss://`).
+   *   Ignored when URL starts with `redis://`.
+   *   Mainly used for development and testing purposes, e.g. when connecting to a cloud instance through a proxy/bastion machine.
+   *   NOTE: In Deno, setting this flag to `false` is not sufficient to skip server certificate verification,
+   *         You'll need to set --unsafely-ignore-certificate-errors: e.g. --unsafely-ignore-certificate-errors=localhost 
    * @param params.bloomFilterSizeInBits The size of the Bloom filter in bits, defaults to 10,000.
    * @param params.hashesPerItem The number of hash functions to use, defaults to 3.
    * @param params.hashFunction1 The 1st hash function to use, defaults to using SHA-256 internally.
@@ -82,14 +88,18 @@ export class RedisBloomFilterClient implements BloomFilterClient {
    */
   public static async create(params: {
     url: string,
+    checkServerIdentity?: boolean,
     bloomFilterSizeInBits?: number,
     hashesPerItem?: number,
     hashFunction1?: (data: string) => Promise<number>,
     hashFunction2?: (data: string) => Promise<number>,
   }): Promise<BloomFilterClient> {
-    const { url, bloomFilterSizeInBits, hashesPerItem, hashFunction1, hashFunction2 } = params;
+    const { url, checkServerIdentity, bloomFilterSizeInBits, hashesPerItem, hashFunction1, hashFunction2 } = params;
 
-    const redis = await NodeRedisAdapter.create(url);
+    const redis = await NodeRedisAdapter.create(
+      url,
+      checkServerIdentity ?? true,
+    );
     const client = new RedisBloomFilterClient(
       redis,
       bloomFilterSizeInBits || 10000,

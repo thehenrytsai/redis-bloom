@@ -1,0 +1,6 @@
+{
+  "deno.testing.args": [
+    "--allow-all",
+    "--unsafely-ignore-certificate-errors=localhost"
+  ]
+}
