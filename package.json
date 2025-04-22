@@ -10,7 +10,7 @@
         "dist/"
     ],
     "scripts": {
-        "build": "deno task build",
+        "build": "deno task build:node",
         "test": "tsc && deno task build && node dist/test/bloom.spec.js"
     },
     "dependencies": {
