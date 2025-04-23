@@ -1,10 +1,13 @@
 {
     "name": "@thehenrytsai/redis-bloom",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "description": "Redis Bloom filter without needing to load custom modules",
     "license": "Apache-2.0",
     "author": "Henry Tsai",
-    "keywords": ["bloom", "redis"],
+    "keywords": [
+        "bloom",
+        "redis"
+    ],
     "repository": {
         "type": "git",
         "url": "https://github.com/thehenrytsai/redis-bloom.git"
