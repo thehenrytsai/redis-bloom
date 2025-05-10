@@ -4,9 +4,15 @@ import { RedisBloomFilterClient } from "../src/bloom.ts";
 Deno.test("Redis Bloom filters", async () => {
   const filterName = Date.now().toString();
 
+
+  const client = await RedisBloomFilterClient.create({ url: "redis://localhost:6379" });
+
   // Intentionally keeping the line below to show how to connect to a Redis server with TLS but skipping certificate verification.
   // const client = await RedisBloomFilterClient.create({ url: "rediss://localhost:6380", checkServerIdentity: false });
-  const client = await RedisBloomFilterClient.create({ url: "redis://localhost:6379" });
+  
+  // Intentionally keeping the line below to show how to connect to a AWS Redis server with TLS
+  // const client = await RedisBloomFilterClient.create({ url: "rediss://master.test-redis-service-to-replace.tl83oi.use1.cache.amazonaws.com:6379" });
+  
   await client.clearAll();
   
   // 1. Test creation then using the filter

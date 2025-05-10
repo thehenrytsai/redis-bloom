@@ -22,16 +22,22 @@ export class NodeRedisAdapter implements RedisClient {
     
     const useTls = url.startsWith('rediss://');
 
-    this.client = createClient({
-      url,
-      socket: {
-        tls: useTls,
-        // If we are using TLS and want to keep server identity verification,
-        // we set the checkServerIdentity to undefined: ie. keeping existing default validation logic.
-        // If we want to skip server identity verification, we set it to a function that does nothing.
-        checkServerIdentity: useTls && checkServerIdentity ? undefined : () => undefined,
-      },
-    });
+    if (!useTls || useTls && checkServerIdentity) {
+      this.client = createClient({
+        url,
+        socket: { tls: useTls },
+      });
+    } else {
+      // This is the special case when we are using TLS but want to skip server identity verification.
+
+      this.client = createClient({
+        url,
+        socket: {
+          tls: useTls, // `useTls` is `true`
+          checkServerIdentity: () => undefined, // Skip server identity verification
+        },
+      });
+    }
   }
 
   async connect(): Promise<void> {

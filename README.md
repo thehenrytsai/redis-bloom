@@ -88,7 +88,7 @@ This guide assumes Mac/Linux environment.
    For Bash (Linux):
 
    ```
-     echo 'export PATH="$HOME/bin:$PATH"' >> ~/.zshrc
+     echo 'export PATH="$HOME/bin:$PATH"' >> ~/.bashrc
      source ~/.bashrc
    ```
    

@@ -1,6 +1,6 @@
 {
     "name": "@thehenrytsai/redis-bloom",
-    "version": "1.2.1",
+    "version": "1.2.2",
     "description": "Redis Bloom filter without needing to load custom modules",
     "license": "Apache-2.0",
     "author": "Henry Tsai",
